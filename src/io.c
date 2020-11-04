@@ -141,6 +141,10 @@ void* wolfSSH_GetIOWriteCtx(WOLFSSH* ssh)
         #include "nucleus.h"
         #include "networking/nu_networking.h"
         #include <errno.h>
+    #elif defined(FUSION_RTOS)
+        #include <sys/fcltypes.h>
+        #include <fclerrno.h>
+        #include <fclfcntl.h>
     #else
         #include <sys/types.h>
         #include <errno.h>
@@ -229,6 +233,14 @@ void* wolfSSH_GetIOWriteCtx(WOLFSSH* ssh)
     #define SOCKET_EPIPE       NU_NOT_CONNECTED
     #define SOCKET_ECONNREFUSED NU_CONNECTION_REFUSED
     #define SOCKET_ECONNABORTED NU_NOT_CONNECTED
+#elif defined(FUSION_RTOS)
+    #define SOCKET_EWOULDBLOCK FCL_EWOULDBLOCK
+    #define SOCKET_EAGAIN      FCL_EAGAIN
+    #define SOCKET_ECONNRESET  FNS_ECONNRESET
+    #define SOCKET_EINTR       FCL_EINTR
+    #define SOCKET_EPIPE       FCL_EPIPE
+    #define SOCKET_ECONNREFUSED FNS_ECONNREFUSED
+    #define SOCKET_ECONNABORTED FNS_ECONNABORTED
 #else
     #define SOCKET_EWOULDBLOCK EWOULDBLOCK
     #define SOCKET_EAGAIN      EAGAIN
@@ -257,6 +269,9 @@ void* wolfSSH_GetIOWriteCtx(WOLFSSH* ssh)
 #elif defined(WOLFSSL_NUCLEUS)
     #define SEND_FUNCTION NU_Send
     #define RECV_FUNCTION NU_Recv
+#elif defined(FUSION_RTOS)
+    #define SEND_FUNCTION FNS_SEND
+    #define RECV_FUNCTION FNS_RECV
 #else
     #define SEND_FUNCTION send
     #define RECV_FUNCTION recv
@@ -302,6 +317,8 @@ static INLINE int LastError(void)
     return WSAGetLastError();
 #elif defined(EBSNET)
     return xn_getlasterror();
+#elif defined(FUSION_RTOS)
+    return FCL_GET_ERRNO;
 #else
     return errno;
 #endif
@@ -325,7 +342,23 @@ int wsEmbedRecv(WOLFSSH* ssh, void* data, word32 sz, void* ctx)
     }
 #endif
 
+#ifdef FUSION_RTOS
+retry:
+    recvd = (int)RECV_FUNCTION(sd, buf, sz, ssh->rflags, &err);
+
+    if(recvd < 0) {
+       if(err==63)
+       {
+               UARTF("FUSION IO RETRY %d\r\n", err);
+               WSLEEP(10);
+               goto retry;
+       }
+       UARTF("FUSION IO ERROR %d\r\n", err);
+    }
+    //TODO handle return value in err
+#else
     recvd = (int)RECV_FUNCTION(sd, buf, sz, ssh->rflags);
+#endif
 
     recvd = TranslateReturnCode(recvd, sd);
 
@@ -403,7 +436,21 @@ int wsEmbedSend(WOLFSSH* ssh, void* data, word32 sz, void* ctx)
     }
 #endif /* MICROCHIP_MPLAB_HARMONY */
 
+#ifdef FUSION_RTOS
+retry:
+    sent = (int)SEND_FUNCTION(sd, buf, sz, ssh->wflags, &err);
+    if(sent < 0) {
+       if(err==63)
+       {
+               UARTF("FUSION IO SEND RETRY %d\r\n", err);
+               WSLEEP(10);
+               goto retry;
+       }
+       UARTF("FUSION IO SEND ERROR %d\r\n", err);
+    }
+#else
     sent = (int)SEND_FUNCTION(sd, buf, sz, ssh->wflags);
+#endif
 
     WLOG(WS_LOG_DEBUG,"Embed Send sent %d", sent);
 

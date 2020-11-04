@@ -668,7 +668,7 @@ void SshResourceFree(WOLFSSH* ssh, void* heap)
         ssh->scpRecvMsg = NULL;
         ssh->scpRecvMsgSz = 0;
     }
-#ifdef WOLFSSL_NUCLEUS
+#ifdef WOLFSSH_ABSPATH
     WFREE(ssh->scpBasePathDynamic, ssh->ctx->heap, DYNTYPE_BUFFER);
     ssh->scpBasePathDynamic = NULL;
     ssh->scpBasePathSz = 0;
@@ -9507,7 +9507,7 @@ void clean_path(char* path)
     long sz = (long)WSTRLEN(path);
     byte found;
 
-#if defined(WOLFSSL_NUCLEUS) || defined(USE_WINDOWS_API)
+#if defined(WOLFSSL_NUCLEUS) || defined(USE_WINDOWS_API) || defined(FUSION_RTOS)
     for (i = 0; i < sz; i++) {
         if (path[i] == '/') path[i] = '\\';
     }
@@ -9586,7 +9586,7 @@ void clean_path(char* path)
             }
         } while (found);
 
-#if defined(WOLFSSL_NUCLEUS) || defined(USE_WINDOWS_API)
+#if defined(WOLFSSL_NUCLEUS) || defined(USE_WINDOWS_API) || defined(FUSION_RTOS)
         sz = (long)WSTRLEN(path);
 
         if (path[sz - 1] == ':') {

@@ -33,7 +33,7 @@
 
 
 #include <wolfssh/port.h>
-#if !defined(USE_WINDOWS_API) && !defined(FREESCALE_MQX)
+#if !defined(USE_WINDOWS_API) && !defined(FREESCALE_MQX) && !defined(FUSION_RTOS)
     #include <stdio.h>
 #endif
 
@@ -73,6 +73,12 @@ int wfopen(WFILE** f, const char* filename, const char* mode)
     else {
         return 1;
     }
+#elif defined(FUSION_RTOS)
+    if (f != NULL) {
+        *f = FCL_FOPEN(filename, mode);
+        return *f == NULL;
+    }
+    return 1;
 #else
     if (f != NULL) {
         *f = fopen(filename, mode);
@@ -86,7 +92,7 @@ int wfopen(WFILE** f, const char* filename, const char* mode)
     !defined(NO_WOLFSSH_SERVER)
 
     #if defined(USE_WINDOWS_API) || defined(WOLFSSL_NUCLEUS) || \
-        defined(FREESCALE_MQX)
+        defined(FREESCALE_MQX) || defined(FUSION_RTOS)
 
         /* This is current inline in the source. */
 

@@ -4155,9 +4155,13 @@ int SFTP_GetAttributes(void* fs, const char* fileName, WS_SFTP_FILEATRB* atr,
     atr->per = (word32)stats.st_mode;
 
     atr->flags |= WOLFSSH_FILEATRB_TIME;
+#ifdef FUSION_RTOS
+    atr->atime = (word32)stats.st_atim;
+    atr->mtime = (word32)stats.st_mtim;
+#else
     atr->atime = (word32)stats.st_atime;
     atr->mtime = (word32)stats.st_mtime;
-
+#endif
     /* @TODO handle attribute extensions */
 
     return WS_SUCCESS;
@@ -4179,7 +4183,7 @@ int SFTP_GetAttributes_Handle(WOLFSSH* ssh, byte* handle, int handleSz,
         WLOG(WS_LOG_SFTP, "Unexpected handle size SFTP_GetAttributes_Handle()");
     }
 
-    if (fstat(*(int*)handle, &stats) != 0) {
+    if (WFSTAT(*(int*)handle, &stats) != 0) {
             return WS_BAD_FILE_E;
     }
 
@@ -4199,9 +4203,13 @@ int SFTP_GetAttributes_Handle(WOLFSSH* ssh, byte* handle, int handleSz,
     atr->per = (word32)stats.st_mode;
 
     atr->flags |= WOLFSSH_FILEATRB_TIME;
+#ifdef FUSION_RTOS
+    atr->atime = (word32)stats.st_atim;
+    atr->mtime = (word32)stats.st_mtim;
+#else
     atr->atime = (word32)stats.st_atime;
     atr->mtime = (word32)stats.st_mtime;
-
+#endif
     /* @TODO handle attribute extensions */
 
     (void)ssh;

@@ -69,12 +69,13 @@ enum WS_ScpFileStates {
 
 #if !defined(WOLFSSH_SCP_USER_CALLBACKS)
 #if !defined(NO_FILESYSTEM)
-    #include <time.h>
-    #ifdef HAVE_SYS_TIME_H
-        #include <sys/time.h>
-    #endif
-    #include <errno.h>
-
+    #ifndef FUSION_RTOS
+        #include <time.h>
+        #ifdef HAVE_SYS_TIME_H
+            #include <sys/time.h>
+        #endif
+        #include <errno.h>
+    #endif /* FUSION_RTOS */
     typedef struct ScpSendCtx {
     #ifndef WOLFSSL_NUCLEUS
         struct dirent* entry;                   /* file entry, from readdir() */

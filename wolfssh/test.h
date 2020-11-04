@@ -22,7 +22,7 @@
 #ifndef _WOLFSSH_TEST_H_
 #define _WOLFSSH_TEST_H_
 
-#ifndef NO_STDIO_FILESYSTEM
+#if !defined(NO_STDIO_FILESYSTEM) && !defined(FUSION_RTOS)
 #include <stdio.h>
 /*#include <stdlib.h>*/
 #include <ctype.h>
@@ -102,6 +102,51 @@
     #endif
 
     #define NUM_SOCKETS 5
+
+#elif defined(FUSION_RTOS)
+    #include "fusioncfg.h"
+    #include "fcl_network.h"
+    #include "fclutils.h"
+    #include "fcl_sockaddr.h"
+    #include <fclstdio.h>
+    #include <fclunistd.h>
+    #include <fcl_os.h>
+    #include <fclstring.h>
+    #include <fcl_watchdog.h>
+    #include "fcltime.h"
+    #include <fns_socket.h>
+
+    #define socklen_t int
+    #define SOCKET_T FNS_SOCKET_TYPE
+    #define NUM_SOCKETS 1
+    #include "fns_bsdsockapi.h"
+    #ifdef accept
+        #undef accept
+    #endif
+    #define accept(f,a,s) fnsAccept(f,a,s,&err)
+
+    #define realloc FCL_REALLOC
+    #define malloc FCL_MALLOC
+    #define free FCL_FREE
+    #define exit return
+    #ifndef EXIT_FAILURE
+        #define EXIT_FAILURE 1
+    #endif
+    #ifndef EXIT_SUCCESS
+        #define EXIT_SUCCESS 0
+    #endif
+
+    #define FILE WFILE
+    #define fseek WFSEEK
+    #define ftell WFTELL
+    #define rewind WREWIND
+    #define fread WFREAD
+    #define fwrite WFWRITE
+    #define fclose WFCLOSE
+
+    #define printf FCL_PRINTF
+    #define fprintf FCL_FPRINTF
+
 #else /* USE_WINDOWS_API */
     #include <unistd.h>
     #include <netdb.h>
@@ -160,6 +205,9 @@
 #elif defined(WOLFSSL_NUCLEUS)
     #define WCLOSESOCKET(s) NU_Close_Socket((s))
     #define WSTARTTCP()
+#elif defined(FUSION_RTOS)
+    //TODO what Fusion API for closesocket()?
+    #define WCLOSESOCKET(s) fnsClose(s, &err)
 #else
     #define WCLOSESOCKET(s) close(s)
     #define WSTARTTCP()
@@ -180,6 +228,10 @@
     #elif defined(WOLFSSL_NUCLEUS) || defined(FREESCALE_MQX)
         typedef unsigned int  THREAD_RETURN;
         typedef intptr_t      THREAD_TYPE;
+        #define WOLFSSH_THREAD
+    #elif defined(FUSION_RTOS)
+        typedef int THREAD_RETURN;
+        typedef fclThreadHandle THREAD_TYPE;
         #define WOLFSSH_THREAD
     #else
         typedef unsigned int  THREAD_RETURN;
@@ -203,7 +255,8 @@
 
 
 #ifndef TEST_IPV6
-    static const char* const wolfSshIp = "127.0.0.1";
+//    static const char* const wolfSshIp = "127.0.0.1";
+    static const char* const wolfSshIp = "10.6.13.12";
 #else /* TEST_IPV6 */
     static const char* const wolfSshIp = "::1";
 #endif /* TEST_IPV6 */
@@ -222,12 +275,23 @@
 #endif
 
 #ifdef WOLFSSL_VXWORKS
+
 static INLINE void err_sys(const char* msg)
 {
     printf("wolfSSH error: %s\n", msg);
     return;
 }
+
+#elif defined(FUSION_RTOS)
+
+static INLINE void err_sys(const char* msg)
+{
+    printf("wolfSSH error: %s\n", msg);
+    return;
+}
+
 #else
+
 static INLINE WS_NORETURN void err_sys(const char* msg)
 {
     printf("wolfSSH error: %s\n", msg);
@@ -476,6 +540,9 @@ static INLINE void tcp_socket(WS_SOCKET_T* sockFd)
     *sockFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 #elif defined(WOLFSSL_NUCLEUS)
     *sockFd = NU_Socket(NU_FAMILY_IP, NU_TYPE_STREAM, 0);
+#elif defined(FUSION_RTOS)
+    int err;
+    *sockFd = FNS_SOCKET(AF_INET_V, SOCK_STREAM, 0, &err);
 #else
     *sockFd = socket(AF_INET_V, SOCK_STREAM, 0);
 #endif
@@ -503,6 +570,8 @@ static INLINE void tcp_socket(WS_SOCKET_T* sockFd)
     /* not full signal implementation */
 #elif defined(WOLFSSL_NUCLEUS)
     /* nothing to define */
+#elif defined(FUSION_RTOS)
+    /* nothing to define */
 #else  /* no S_NOSIGPIPE */
     signal(SIGPIPE, SIG_IGN);
 #endif /* S_NOSIGPIPE */
@@ -514,6 +583,16 @@ static INLINE void tcp_socket(WS_SOCKET_T* sockFd)
             err_sys("setsockopt TCP_NODELAY failed\n");
         }
     #elif defined(WOLFSSL_NUCLEUS)
+    #elif defined(FUSION_RTOS)
+        int on = 1;
+        int len = sizeof(on);
+        int err = 0;
+        int res = FNS_SETSOCKOPT(*sockFd, IPPROTO_TCP, TCP_NODELAY, &on, len, &err);
+        if (res < 0)
+            err_sys("setsockopt TCP_NODELAY failed\n");
+
+        //TODO Do something with err
+        (void)err;
     #else
         int       on = 1;
         socklen_t len = sizeof(on);
@@ -563,8 +642,16 @@ static INLINE void tcp_listen(WS_SOCKET_T* sockfd, word16* port, int useAnyAddr)
     #else
         int on  = 1;
     #endif
+    #ifdef FUSION_RTOS
+        int len = sizeof(on);
+        int err;
+        res = FNS_SETSOCKOPT(*sockfd, SOL_SOCKET, SO_REUSEADDR, &on, len, &err);
+        // TODO Do something with err
+        (void)err;
+    #else
         socklen_t len = sizeof(on);
         res = setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &on, len);
+    #endif
         if (res < 0)
             err_sys("setsockopt SO_REUSEADDR failed\n");
     }
@@ -576,6 +663,14 @@ static INLINE void tcp_listen(WS_SOCKET_T* sockfd, word16* port, int useAnyAddr)
         err_sys("tcp bind failed");
     if (NU_Listen(*sockfd, NUM_SOCKETS) != NU_SUCCESS)
         err_sys("tcp listen failed");
+#elif defined(FUSION_RTOS)
+    {
+        int err;
+        if (FNS_BIND(*sockfd, (const struct sockaddr*)&addr, sizeof(addr), &err) != 0)
+            err_sys("tcp bind failed");
+        if (FNS_LISTEN(*sockfd, NUM_SOCKETS, &err) != 0)
+            err_sys("tcp listen failed");
+    }
 #else
     if (bind(*sockfd, (const struct sockaddr*)&addr, sizeof(addr)) != 0)
         err_sys("tcp bind failed");
@@ -583,7 +678,7 @@ static INLINE void tcp_listen(WS_SOCKET_T* sockfd, word16* port, int useAnyAddr)
         err_sys("tcp listen failed");
 #endif
 
-    #if !defined(USE_WINDOWS_API) && !defined(WOLFSSL_TIRTOS) && !defined(WOLFSSL_NUCLEUS)
+    #if !defined(USE_WINDOWS_API) && !defined(WOLFSSL_TIRTOS) && !defined(WOLFSSL_NUCLEUS) && !defined(FUSION_RTOS)
         if (*port == 0) {
             socklen_t len = sizeof(addr);
             if (getsockname(*sockfd, (struct sockaddr*)&addr, &len) == 0) {
@@ -618,7 +713,7 @@ static INLINE void tcp_set_nonblocking(WS_SOCKET_T* sockfd)
             err_sys("ioctlsocket failed");
     #elif defined(WOLFSSL_MDK_ARM) || defined(WOLFSSL_KEIL_TCP_NET) \
         || defined (WOLFSSL_TIRTOS)|| defined(WOLFSSL_VXWORKS) || \
-        defined(WOLFSSL_NUCLEUS)
+        defined(WOLFSSL_NUCLEUS) || defined(FUSION_RTOS)
          /* non blocking not supported, for now */
     #else
         int flags = fcntl(*sockfd, F_GETFL, 0);
@@ -654,6 +749,10 @@ static INLINE int wSelect(int nfds, WFD_SET_TYPE* recvfds,
         return 1;
     }
     return 0;
+#elif defined(FUSION_RTOS)
+    int err;
+
+    return FNS_SELECT(nfds, recvfds, writefds, errfds, timeout, &err);
 #else
     return select(nfds, recvfds, writefds, errfds, timeout);
 #endif
@@ -691,7 +790,7 @@ static INLINE int tcp_select(SOCKET_T socketfd, int to_sec)
 /* Wolf Root Directory Helper */
 /* KEIL-RL File System does not support relative directory */
 #if !defined(WOLFSSL_MDK_ARM) && !defined(WOLFSSL_KEIL_FS) && !defined(WOLFSSL_TIRTOS) \
-    && !defined(NO_WOLFSSL_DIR) && !defined(WOLFSSL_NUCLEUS)
+    && !defined(NO_WOLFSSL_DIR) && !defined(WOLFSSL_NUCLEUS) && !defined(FUSION_RTOS)
     /* Maximum depth to search for WolfSSL root */
     #define MAX_WOLF_ROOT_DEPTH 5
 

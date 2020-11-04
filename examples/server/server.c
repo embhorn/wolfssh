@@ -21,7 +21,6 @@
 #define WOLFSSH_TEST_SERVER
 #define WOLFSSH_TEST_THREADING
 
-
 #ifdef WOLFSSL_USER_SETTINGS
     #include <wolfssl/wolfcrypt/settings.h>
 #else
@@ -47,6 +46,12 @@
 
 static const char serverBanner[] = "wolfSSH Example Server\n";
 
+static int myoptind = 0;
+static char* myoptarg = NULL;
+
+#ifdef FUSION_RTOS
+static int err;
+#endif
 
 typedef struct {
     WOLFSSH* ssh;
@@ -307,8 +312,8 @@ static int load_key(byte isEcc, byte* buf, word32 bufSz)
 
 #ifndef NO_FILESYSTEM
     const char* bufName;
-    bufName = isEcc ? "./keys/server-key-ecc.der" :
-                       "./keys/server-key-rsa.der" ;
+    bufName = isEcc ? ("C:\\keys\\server-key-ecc.der") :
+                      ("C:\\keys\\server-key-rsa.der") ;
     sz = load_file(bufName, buf, bufSz);
 #else
     /* using buffers instead */
@@ -812,8 +817,5 @@ THREAD_RETURN WOLFSSH_THREAD server_test(void* args)
         return args.return_code;
     }
 
-
-    int myoptind = 0;
-    char* myoptarg = NULL;
 
 #endif /* NO_MAIN_DRIVER */

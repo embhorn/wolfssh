@@ -34,9 +34,11 @@
 #include <wolfssh/log.h>
 #include <wolfssh/error.h>
 
-#include <stdlib.h>
+#if !defined(FUSION_RTOS)
+    #include <stdlib.h>
+#endif
 #include <stdarg.h>
-#ifndef FREESCALE_MQX
+#if !defined(FREESCALE_MQX) && !defined(FUSION_RTOS)
     #include <stdio.h>
     #ifndef WOLFSSH_NO_TIMESTAMP
         #include <time.h>
@@ -146,12 +148,12 @@ void DefaultLoggingCb(enum wolfSSH_LogLevel level, const char *const msgStr)
         current = WTIME(NULL);
         if (WLOCALTIME(&current, &local)) {
             /* make pretty */
-            strftime(timeStr, sizeof(timeStr), "%F %T ", &local);
+            WSTRFTIME(timeStr, sizeof(timeStr), "%F %T ", &local);
         }
     }
 #endif /* WOLFSSH_NO_TIMESTAMP */
     #ifndef WOLFSSH_LOG_PRINTF
-    fprintf(stdout, "%s[%s] %s\r\n", timeStr, GetLogStr(level), msgStr);
+    WFPRINTF(stdout, "%s[%s] %s\r\n", timeStr, GetLogStr(level), msgStr);
     #else
     printf("%s[%s] %s\r\n", timeStr, GetLogStr(level), msgStr);
     #endif

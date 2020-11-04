@@ -93,7 +93,12 @@ wolfSSL_Mutex doneLock;
 #define MAX_PASSWD_RETRY 3
 static int passwdRetry = MAX_PASSWD_RETRY;
 
+static int myoptind = 0;
+static char* myoptarg = NULL;
 
+#ifdef FUSION_RTOS
+static int err;
+#endif
 
 #ifdef WOLFSSH_AGENT
 typedef struct WS_AgentCbActionCtx {
@@ -253,6 +258,7 @@ static int ssh_worker(thread_ctx_t* threadCtx) {
     }
 #endif
 
+printf("ssh_worker 1\n");
     do {
         bufSz = EXAMPLE_BUFFER_SZ + backlogSz;
 
@@ -1106,19 +1112,18 @@ static int load_file(const char* fileName, byte* buf, word32 bufSz)
 #endif /* NO_FILESYSTEM */
 
 #ifdef HAVE_ECC521
-    #define ECC_PATH "./keys/server-key-ecc-521.der"
+    #define ECC_PATH "C:\\""." WS_DELIM_S "keys" WS_DELIM_S "server-key-ecc-521.der"
 #else
-    #define ECC_PATH "./keys/server-key-ecc.der"
+    #define ECC_PATH "C:\\""." WS_DELIM_S "keys" WS_DELIM_S "server-key-ecc.der"
 #endif
 
 /* returns buffer size on success */
 static int load_key(byte isEcc, byte* buf, word32 bufSz)
 {
     word32 sz = 0;
-
 #ifndef NO_FILESYSTEM
     const char* bufName;
-    bufName = isEcc ? ECC_PATH : "./keys/server-key-rsa.der" ;
+    bufName = isEcc ? ECC_PATH : "C:\\""." WS_DELIM_S "keys" WS_DELIM_S "server-key-rsa.der" ;
     sz = load_file(bufName, buf, bufSz);
 #else
     /* using buffers instead */
@@ -1570,7 +1575,7 @@ THREAD_RETURN WOLFSSH_THREAD echoserver_test(void* args)
     int     argc = serverArgs->argc;
     char**  argv = serverArgs->argv;
     serverArgs->return_code = 0;
-
+#if 0
     if (argc > 0) {
     while ((ch = mygetopt(argc, argv, "?1d:efEp:R:N")) != -1) {
         switch (ch) {
@@ -1622,6 +1627,7 @@ THREAD_RETURN WOLFSSH_THREAD echoserver_test(void* args)
         }
     }
     }
+#endif
     myoptind = 0;      /* reset for test cases */
     wc_InitMutex(&doneLock);
 
@@ -1860,7 +1866,6 @@ THREAD_RETURN WOLFSSH_THREAD echoserver_test(void* args)
 
 
 #ifndef NO_MAIN_DRIVER
-
     int main(int argc, char** argv)
     {
         func_args args;
@@ -1890,9 +1895,6 @@ THREAD_RETURN WOLFSSH_THREAD echoserver_test(void* args)
         return args.return_code;
     }
 
-
-    int myoptind = 0;
-    char* myoptarg = NULL;
 
 #endif /* NO_MAIN_DRIVER */
 

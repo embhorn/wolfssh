@@ -25,5 +25,7 @@
 
 THREAD_RETURN WOLFSSH_THREAD server_test(void* args);
 
+/* wolfSSH settings */
+int wolfssh_task_start(void* voidinfo, char* argline);
 
 #endif /* _WOLFSSH_EXAMPLES_SERVER_H_ */

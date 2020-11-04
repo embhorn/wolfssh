@@ -62,14 +62,14 @@
 
 #else /* !WOLFSSL_MISC_INCLUDED && !NO_INLINE */
 
-
+#ifndef FUSION_RTOS
 #ifndef min
 STATIC INLINE word32 min(word32 a, word32 b)
 {
     return a > b ? b : a;
 }
 #endif /* min */
-
+#endif
 
 /* convert opaque to 32 bit integer */
 STATIC INLINE void ato32(const byte* c, word32* u32)
